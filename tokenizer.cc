@@ -1,66 +1,126 @@
 #include "tokenizer.h"
 #include <sstream>
 #include <iostream>
+#include <cctype>
+#include <cstdio>
+
+// Save one word.
+static void addWord(
+    std::vector<Token> &tokens,
+    std::string &word,
+    bool &started
+)
+{
+    if (started)
+        tokens.push_back({TOKEN_ARGUMENT, word});
+
+    word.clear();
+    started = false;
+}
 
 std::vector<Token> tokenize(const std::string &input)
 {
     std::vector<Token> tokens;
-    std::istringstream stream(input);
     std::string word;
 
-    while (stream >> word)
+    char quote = 0;
+    bool started = false;
+
+    for (size_t i = 0; i < input.size(); i++)
     {
-        Token token;
+        char c = input[i];
 
-        if (word == "|")
-            token.type = TOKEN_PIPE;
-        else if (word == ">")
-            token.type = TOKEN_REDIRECT;
-        else if (word == ">>")
-            token.type = TOKEN_APPEND;
-        else if (word == "<")
-            token.type = TOKEN_INPUT;
-        else if (word == "&")
-            token.type = TOKEN_BACKGROUND;
-        else if (word == "2>")
-            token.type = TOKEN_ERROR;
-        else if (word == ">>&")
-            token.type = TOKEN_REDIRECT_AND_ERROR;
+        // Keep quoted text together.
+        if (quote)
+        {
+            if (c == quote)
+                quote = 0;
+            else
+                word += c;
+
+            continue;
+        }
+
+        if (c == '\'' || c == '"')
+        {
+            quote = c;
+            started = true;
+            continue;
+        }
+
+        // A space ends the word.
+        if (std::isspace((unsigned char)c))
+        {
+            addWord(tokens, word, started);
+            continue;
+        }
+
+        // Find an operator.
+        TokenType type;
+        size_t length = 0;
+
+        if (input.compare(i, 3, ">>&") == 0)
+        {
+            type = TOKEN_REDIRECT_AND_ERROR;
+            length = 3;
+        }
+        else if (input.compare(i, 2, ">>") == 0)
+        {
+            type = TOKEN_APPEND;
+            length = 2;
+        }
+        else if (!started && input.compare(i, 2, "2>") == 0)
+        {
+            type = TOKEN_ERROR;
+            length = 2;
+        }
+        else if (c == '>')
+        {
+            type = TOKEN_REDIRECT;
+            length = 1;
+        }
+        else if (c == '<')
+        {
+            type = TOKEN_INPUT;
+            length = 1;
+        }
+        else if (c == '|')
+        {
+            type = TOKEN_PIPE;
+            length = 1;
+        }
+        else if (c == '&')
+        {
+            type = TOKEN_BACKGROUND;
+            length = 1;
+        }
+
+        if (length)
+        {
+            addWord(tokens, word, started);
+
+            tokens.push_back({
+                type,
+                input.substr(i, length)
+            });
+
+            i += length - 1;
+        }
         else
-            {
-                if (!tokens.empty())
-                {
-                    Token &prev = tokens.back();
-                    if (prev.type == TOKEN_REDIRECT ||
-                        prev.type == TOKEN_APPEND ||
-                        prev.type == TOKEN_INPUT ||
-                        prev.type == TOKEN_ERROR || 
-                        prev.type == TOKEN_REDIRECT_AND_ERROR ||
-                        prev.type == TOKEN_COMMAND || 
-                        prev.type == TOKEN_ARGUMENT || 
-                        word[0] == '-' ||
-                        word.find('/') != std::string::npos ||
-                        word.find('.') != std::string::npos
-
-                    )
-                    {
-                        token.type = TOKEN_ARGUMENT;
-                    }
-                    else
-                    {
-                        token.type = TOKEN_COMMAND;
-                    }
-                }
-                else
-                {
-                    token.type = TOKEN_COMMAND;
-                }
-            }
-
-        token.value = word;
-        tokens.push_back(token);
+        {
+            word += c;
+            started = true;
+        }
     }
 
+    if (quote)
+    {
+        fprintf(stderr, "Missing closing quote\n");
+        return {};
+    }
+
+    addWord(tokens, word, started);
     tokens.push_back({TOKEN_EOF, ""});
+
     return tokens;
 }
