@@ -2,7 +2,7 @@
 
 A simple shell written in C++.
 
-## Run
+## Build and Run
 
 ```bash
 make
@@ -12,24 +12,28 @@ make
 ## Features
 
 - Run commands with arguments.
-- Support pipes and file redirection.
-- Run background commands using &.
-- Support cd and exit.
-- Keep the shell running after Ctrl+C.
-- Save finished-child messages in process.log.
+- Connect commands using pipes.
+- Redirect input, output and errors.
+- Run commands in the background using &.
+- Use cd to change directory and exit to close the shell.
+- Handle Ctrl+C and log child termination in process.log.
 
 ## Examples
 
 ```bash
 ls -al
-echo "Hello" | grep "Hello"
-echo hello > output.txt
-cat < output.txt
+echo hello | grep hello
+echo first > out.txt
+echo second >> out.txt
+cat < out.txt
+ls /missing-folder 2> errors.txt
 sleep 3 &
+cd /tmp
 exit
 ```
 
 ## Notes
 
-The wildcard bonus is not included.
-Use cd and exit alone, without pipes or redirection.
+- Use spaces around operators.
+- Use cd and exit alone.
+- Wildcards (* and ?) are not implemented.
